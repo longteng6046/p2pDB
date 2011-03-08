@@ -13,6 +13,7 @@
 import random
 
 from peer import *
+from communicator import *
 
 # client's local list that keeps all peer's ID.
 pid_list = []

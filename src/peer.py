@@ -5,67 +5,104 @@
 # Version: 0.3
 # Description:
 #     Define a class Peer, having all data structures needed for a peer.
-<<<<<<< HEAD
 #
-#     test for the first local commit
-=======
 # Update:
 #     For 0.3: send/receive is added to each peer.
 #     use peer.send(objective_Peer_Id, message) to send a message;
 #     use peer.rcv() to rcv all messages into local messageList.
 #     received messages will not be received again by calling rcv();
 #     local messageList will be overritten by multiple call of rcv().
->>>>>>> 91607d94659abea8471f0293d3c323d806ce8b95
 #-------------------------------------------------------------------------------
 
+from collections import defaultdict;
+
 class Peer:
-    pId = -1
-    routeTable = None
-    leafNodes = None
-    neighbors = None
-    comm = None # Communicator
+
     messageList = []
 
-    def __init__(self, pId, comm):
-        self.pId = pId
-        self.comm = comm
+    # pID: a peer ID
+    # comm: a communicator instances
+    def __init__(self, pId=-1, comm=None):
+        self._pId = pId
+        self._comm = comm
         print "A peer with pId: " + str(pId) + " is created!"
+        
+    #
+    def _initialize(self, routeTable=None, leafTable=None, neighborTable=None):
+        self._routeTable = routeTable
+        self._leafTable = leafTable
+        self._neighborTable = neighborTable
+
+    #
+    def setRouteTable(self, routeTable):
+        self._routeTable = routeTable
+
+    def getRouteTable(self):
+        return self._routeTable
+
+    # neighborTable: a dict data type
+    def setNeighborTable(self, neighborTable=None):
+        self._neighborTable = neighborTable
+
+    def getNeighborTable(self):
+        return self._neighborTable
+
+    # leafTable: a dict data type
+    def setLeafTable(self, leafTable):
+        self._leafTable = leafTable
+        
+    def getLeafTable(self):
+        return self._leafTable
+
+    def setPId(self, pId):
+        self._pId = pId;
 
     def getPId(self):
-        return self.pId
+        return self._pId
+    
+    
+        
+    def createRouteTable(self):
+        routeTable = defaultdict(dict)
+        
+    def mergeRouteTable(self, newRouteTable):
+        return
 
     def join(self, contactPeer):
         if contactPeer == None:
             print "The contact Peer has not been specified."
             return
-        print str(self.pId) + " is joining peer " + str(self.contactPeer.getPId())
+        print str(self._pId) + " is joining peer " + str(self.contactPeer.getPId())
+        contactPeer.route(self._pID)
 
     def terminate(self):
-        print str(self.pId) + " is terminating ..."
+        print str(self._pId) + " is terminating ..."
 
     def leave(self):
-        print str(self.pId) + " has left the system."
+        print str(self._pId) + " has left the system."
 
     def stablize(self):
         print "stablize"
 
     def route(self, key):
-        print "Routing key " + key + " from peer " + str(self.pId)
+        if key in self._leafTable.keys():
+            return self._leafTable[key]
+        print "Routing key " + key + " from peer " + str(self._pId)
 
     def send(self, objPId, message):
-        self.comm.send(self.pId, objPId, message)
+        self._comm.send(self._pId, objPId, message)
 
     def rcv(self):
-        self.messageList = self.comm.rcv(self.pId)
+        self.messageList = self._comm.rcv(self._pId)
 
     def printMessage(self):
         for item in self.messageList:
             print '"' + str(item[2]) + '" from peer ' + str(item[0]) + '.'
     def prtMsgQueue(self):
-        self.comm.prtMsgQueue()
+        self._comm.prtMsgQueue()
 
     def localOperation(self):
-        print "*** Welcome to peer " + str(self.pId) + '! ***'
+        print "*** Welcome to peer " + str(self._pId) + '! ***'
         while (True):
             print '''Please select operation:
             \t'j') join the contacted peer;
@@ -89,7 +126,7 @@ class Peer:
                 self.terminate()
                 return
             elif option == 'send':
-                objId = int(raw_input("Please input the object pId: "))
+                objId = int(raw_input("Please input the object _pId: "))
                 message = raw_input("Please input the message: ")
                 self.send(objId, message)
                 print "Message has been sent."
@@ -105,27 +142,3 @@ class Peer:
             else:
                 print "Please choose an option:"
                 continue
-
-class Communicator:
-    messageQueue = []    
-    def __init__(self, peer_list, pid_list):
-        print "A communicator is created!"
-
-    def send(self, sourceId, destId, content):
-        tuple = (sourceId, destId, content)
-        self.messageQueue.append(tuple)
-
-    def rcv(self, myPId):
-        msgList = []
-        newMsgQueue = []
-        for item in self.messageQueue:
-            if item[1] == myPId:
-                msgList.append(item)
-            else:
-                newMsgQueue.append(item)
-        self.messageQueue = newMsgQueue
-        return msgList
-
-    def prtMsgQueue(self):
-        for item in self.messageQueue:
-            print item
