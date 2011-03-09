@@ -129,12 +129,30 @@ class Peer(object):
             print "The contact Peer has not been specified."
             return
         print str(self._pId) + " is joining peer " + str(self.contactPeer.getPId())
-        contactPeer.route(self._pID)
+        
+        key = self._pId
+        msgList = []
+        peerIDList = []
+        peerIPList = []
+        while True:
+            # TODO: contact the peer with some ip address
+            msg, peerID, peerIP = contactPeer.route(key)
+            msgList.append(msg)
+            peerIDList.append(peerID)
+            peerIPList.append(peerIP)
+            
+            if msg=="find":
+                break
+            
+            # TODO: contact the new peer with this ip address
+            key = peerID
+            
 
     def terminate(self):
         print str(self._pId) + " is terminating ..."
 
     def leave(self):
+        # TODO: send messages to some node
         print str(self._pId) + " has left the system."
 
     def stablize(self):
