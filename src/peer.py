@@ -87,7 +87,7 @@ class Peer:
     localHost = "0.0.0.0"
     port = 10086
 
-    def __init__(self, hostIP, pId=-1, port=10086):
+    def __init__(self, pId=-1, hostIP=None, port=10086):
         self.pId = pId
         self.port = port
         for i in xrange(self.l):
@@ -383,5 +383,5 @@ elif len(sys.argv) == 4:
 else:
     print "Wrong argument list."
     sys.exit(1)
-pId = pid = random.randint(0,255)
+pId = random.randint(0,255)
 selfPeer = Peer(pId, hostIP, port)

@@ -30,7 +30,7 @@ class Processor(threading.Thread):
                     
                     self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("route", joinLevel))
                     
-                    while true:
+                    while True:
                         status, pid, pip = self.peer.route(hostID)
                         if status=="find":
                             self.peer.send(hostIP, self.peer.port, "find" + str(joinLevel) + "\t" + str(pip) + "\t" + str(pid))
