@@ -77,7 +77,6 @@ def compareIP(ip1, ip2):
     
     return ip1-ip2
 
-
 class Peer:
     pId = -1
     routeTable = {}
@@ -313,7 +312,6 @@ class Peer:
         
         return closestPId
 
-        
     def send(self, host, sendPort, content):
         print "sending ..."
 
@@ -335,9 +333,7 @@ class Peer:
         sock.close()
 
         return True
-    
 
-    
     def printMessage(self):
         for item in self.messageQueue:
             print "message: ", item
@@ -399,215 +395,8 @@ class Peer:
                 print "Please choose an option:"
                 continue
 
-class Listener(threading.Thread):
-    # def __init__(self, host, port, messageQueue):
-    def __init__(self, peer):
-        threading.Thread.__init__(self, name = "noname")
-        print "A listener is created!"
-        self.host = ""
-        self.listenPort = peer.listenPort
-        self.messageQueue = peer.messageQueue
-        self.peer = peer
-
-    def run(self):
-        # listen to the host, and write everything into messageQueue
-
-        addr = ("",self.listenPort)
-        sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        sock.bind(addr)
-        buf = 1024 * 1024
-        sock.listen(100)
-        
-        while True:
-            print "Establishing connection..."
-            conn, addr2 = sock.accept()
-            print "Connection established!"
-            # data,addr2 = sock.recvfrom(buf)
-            data = conn.recv(buf)
-
-            print "data received!", data
-
-            if not data:
-                print "Why no data coming?"
-                exit()
-            else:
-                # Preprocess message from others
-                category = data.split('\t')[0]
-                if category == "stable": # it's a stablizing message, to stabQueue
-                    if self.peer.stabLock.acquire():
-                        self.peer.stabQueue.append(data)
-                        self.peer.stabLock.release()
-                # check msgLock()
-                else:
-                    if self.peer.msgLock.acquire():
-                        self.messageQueue.append(data)
-                        self.peer.msgLock.release()
-            time.sleep(0.5)
-
 
             
-class Communicator:
-    messageQueue = None 
-    def __init__(self, peer):
-        print "A communicator is created!"
-        self.messageQueue = peer.messageQueue
-        self.peer = peer
-        self.mylistener = Listener(peer)
-        self.mylistener.setDaemon(True)
-        self.mylistener.start()
-        # self.operation()
-        
-    def send(self, host, sendPort, content):
-        print "sending ..."
-
-        # socket setting 
-        buf = 1024 * 1024
-        addr = (host, sendPort)
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            print "addr: ", addr
-            print "error", sock.connect_ex(addr)
-        except Exception:
-            print "Exception: ", Exception
-            return False
-        sock.send(content)
-        sock.close()
-        return True
-        # sock.sendto(content, addr)
-        # sock.close()
-        
-    # def rcv(self, myPId):
-    #     msgList = []
-    #     newMsgQueue = []
-    #     for item in self.messageQueue:
-    #         msgList.append(item)
-    #     self.messageQueue = newMsgQueue
-    #     return msgList
-
-    def prtMsgQueue(self):
-        for item in self.messageQueue:
-            print item
-
-    # def operation(self):
-    #     while True:
-    #         print '''Please select operation:
-    #         \t'send') send a message to a host;
-    #         \t'prt') print all received messages
-    #         \t'q') logout peer.'''
-    #         option = raw_input("Your command: ")
-            
-    #         if option == 'send':
-    #             host = raw_input("hostname: ")
-    #             content = raw_input("content that you want to send: ")
-    #             self.send(host, 123123, content)
-    #         elif option == 'prt':
-    #             print self.messageQueue
-    #         elif option == 'q':
-    #             break
-    #         else:
-    #             print "Please choose an option:"
-    #             continue
-            
-
-
-class Processor(threading.Thread):
-    def __init__(self, peer):
-        threading.Thread.__init__(self, name = "processor")
-        print "a processor is created..."
-        self.peer = peer;
-        
-    def run(self):
-        while True:
-            msg = self.peer.getMessage()
-            if msg != None:
-                print "receive message: ", msg
-                token = msg.split("\t")
-                if token[0]=="join":
-                    if len(token)!=4:
-                        print "invalid join message format..."
-                        continue
-                    
-                    joinLevel = int(token[1])
-                    if joinLevel<0 or joinLevel>=self.peer.l:
-                        print "invalid join level, something wrong with routing..."
-                        continue
-                    
-                    hostIP = token[2]
-                    hostID = int(token[3])
-
-                    print joinLevel, "\t", hostIP, "\t", hostID
-                    
-                    if joinLevel==0:
-                        print "first send status"
-                        print hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("neighbor")
-                        print self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("neighbor"))
-                        
-                    print "second send status"
-                    print self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("route", joinLevel))
-                    
-                    while True:
-                        status, pid, pip = self.peer.route(hostID)
-
-                        print status, "\t", pid, "\t", pip
-
-                        if status=="find":
-                            print "find send status:"
-                            print self.peer.send(hostIP, self.peer.port, "find" + str(joinLevel) + "\t" + str(pip) + "\t" + str(pid))
-                            print self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(pip) + "\t" + str(pid) + "\t" + self.peer.serialize("leaf"))
-                            print "send over"
-                            break;
-                        elif status=="contact":
-                            if self.peer.send(pip, self.peer.port, "join" + str(joinLevel+1) + "\t" + str(hostIP) + "\t" + str(hostID)):
-                                break;
-                            else:
-                                # TODO: get lock, call stablize
-                                if self.peer.tableLock.acquire():
-                                    print "detected failed peer in route table..."
-                                    self.peer.stablize(pid)
-                                    self.peer.tableLock.release()
-                            
-                    if self.peer.tableLock.acquire():
-                        self.peer.addNewNode(hostIP, hostID)
-                        
-                elif token[0]=="route":
-                    print "route"
-                elif token[0]=="acquire":
-                    if len(token)!=4:
-                        print "invalid acquire message format..."
-                        continue
-                    
-                    hostIP = token[1]
-                    hostID = int(token[2])
-                    tableType = token[3]
-                    
-                    #TODO: serialize table
-                    
-                elif token[0]=="table":
-                    hostIP = token[1]
-                    hostID = int(token[2])
-                    
-                    # TODO: get locks
-                    tableType, tableContent = self.peer.deserialize("\t".join(token[3:]));
-                    
-                    if self.peer.tableLock.acquire():
-                        if str(tableType).isdigit():
-                            self.peer.routeTable[tableType] = [int(tableContent[1]), int(tableContent[2])]
-                            self.peer.routeMappingTable[int(tableContent[1])] = tableContent[3]
-                            self.peer.routeMappingTable[int(tableContent[2])] = tableContent[4]
-                        elif tableType=="leaf":
-                            self.peer.leafTable = tableContent
-                        elif tableType=="neighbor":
-                            self.peer.neighborTable = tableContent
-                            
-                        self.peer.tableLock.release()
-                elif token[0]=="find":
-                    print ""
-                elif token[0]=="live":
-                    print ""
-
-
-
 ##############################
 # Main
 ##############################            

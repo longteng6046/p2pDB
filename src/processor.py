@@ -9,11 +9,11 @@ class Processor(threading.Thread):
     def run(self):
         while True:
             msg = self.peer.getMessage()
-            if msg!=None:
+            if msg != None:
                 print "receive message: ", msg
                 token = msg.split("\t")
                 if token[0]=="join":
-                    if len(token)!=3:
+                    if len(token)!=4:
                         print "invalid join message format..."
                         continue
                     
@@ -24,17 +24,27 @@ class Processor(threading.Thread):
                     
                     hostIP = token[2]
                     hostID = int(token[3])
+
+                    print joinLevel, "\t", hostIP, "\t", hostID
                     
                     if joinLevel==0:
-                        self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("neighbor"))
-                    
-                    self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("route", joinLevel))
+                        print "first send status"
+                        print hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("neighbor")
+                        print self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("neighbor"))
+                        
+                    print "second send status"
+                    print self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(self.peer.localHost) + "\t" + str(self.peer.pId) + "\t" + self.peer.serialize("route", joinLevel))
                     
                     while True:
                         status, pid, pip = self.peer.route(hostID)
+
+                        print status, "\t", pid, "\t", pip
+
                         if status=="find":
-                            self.peer.send(hostIP, self.peer.port, "find" + str(joinLevel) + "\t" + str(pip) + "\t" + str(pid))
-                            self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(pip) + "\t" + str(pid) + "\t" + self.peer.serialize("leaf"))
+                            print "find send status:"
+                            print self.peer.send(hostIP, self.peer.port, "find" + str(joinLevel) + "\t" + str(pip) + "\t" + str(pid))
+                            print self.peer.send(hostIP, self.peer.port, "table" + "\t" + str(pip) + "\t" + str(pid) + "\t" + self.peer.serialize("leaf"))
+                            print "send over"
                             break;
                         elif status=="contact":
                             if self.peer.send(pip, self.peer.port, "join" + str(joinLevel+1) + "\t" + str(hostIP) + "\t" + str(hostID)):
