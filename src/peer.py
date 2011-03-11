@@ -94,9 +94,9 @@ class Peer:
     b = 2
     l = 8
     localHost = "0.0.0.0"
-    listenPort = 10086
-    sendPort = 10086
-    port = 10086
+    listenPort = 123123
+    sendPort = 123123
+    port = 123123
 
     msgLock = None
     deadPeerLock = None
@@ -105,7 +105,7 @@ class Peer:
     
 
 
-    def __init__(self, pId, host = None, joinPort = 10086):
+    def __init__(self, pId, host = None, joinPort = 123123):
         self.pId = pId
         self.localHost = self.getLocalHost()
 
@@ -380,7 +380,7 @@ class Peer:
             elif option == 'j':
                 #host = raw_input("Please input hostname:")
                 host = "bug06.umiacs.umd.edu"
-                self.join(host, 10086)
+                self.join(host, 123123)
             elif option == 'r':
                 key = raw_input("Please input the key to query:")
                 print self.route(key)
@@ -500,7 +500,7 @@ class Communicator:
     #         if option == 'send':
     #             host = raw_input("hostname: ")
     #             content = raw_input("content that you want to send: ")
-    #             self.send(host, 10086, content)
+    #             self.send(host, 123123, content)
     #         elif option == 'prt':
     #             print self.messageQueue
     #         elif option == 'q':
