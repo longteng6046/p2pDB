@@ -2,13 +2,13 @@ import threading
 import socket
 
 class Listener(threading.Thread):
-    # def __init__(self, host, port, messageQueue):
+
     def __init__(self, peer):
         threading.Thread.__init__(self, name = "noname")
         print "A listener is created!"
         self.host = ""
         self.listenPort = peer.listenPort
-        self.messageQueue = peer.messageQueue
+        #self.messageQueue = peer.messageQueue
         self.peer = peer
 
     def run(self):
@@ -21,13 +21,9 @@ class Listener(threading.Thread):
         sock.listen(100)
         
         while True:
-            print "Establishing connection..."
             conn, addr2 = sock.accept()
-            print "Connection established!"
             # data,addr2 = sock.recvfrom(buf)
             data = conn.recv(buf)
-
-            print "data received!", data
 
             if not data:
                 print "Why no data coming?"
@@ -42,5 +38,6 @@ class Listener(threading.Thread):
                 # check msgLock()
                 else:
                     if self.peer.msgLock.acquire():
-                        self.messageQueue.append(data)
+                        self.peer.messageQueue.append(data)
+                        #self.messageQueue.append(data)
                         self.peer.msgLock.release()

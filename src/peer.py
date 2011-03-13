@@ -21,6 +21,9 @@ import time
 # from collections import defaultdict;
 from string import index;
 from math import log;
+from communicator import Communicator;
+from listener import Listener;
+from processor import Processor;
 
 # s: a non-negative integer
 # @return: the bit string representation of s
@@ -121,9 +124,9 @@ class Peer:
         self.tableLock = threading.Lock()
         self.stabLock = threading.Lock()
 
-        # self.processor = Processor(self)
-        # self.processor.setDaemon(True)
-        # self.processor.start()
+        self.processor = Processor(self)
+        self.processor.setDaemon(True)
+        self.processor.start()
 
         # if host != None:
         #     print "join called!"
@@ -153,13 +156,11 @@ class Peer:
                 self.msgLock.release()
                 return result
 
-
-
     def getPId(self):
         return self.pId
 
     def join(self, hostIP, port):
-        print "joining sending\t", self.send(hostIP, port, "join" + "\t" + "0" + "\t" + str(self.localHost) + "\t" + str(self.pId))
+        self.send(hostIP, port, "join" + "\t" + "0" + "\t" + str(self.localHost) + "\t" + str(self.pId))
 
     def serialize(self, tableName, routeTableIndex=0):
         string = tableName
@@ -313,7 +314,7 @@ class Peer:
         return closestPId
 
     def send(self, host, sendPort, content):
-        print "sending ..."
+#        print "sending ..."
 
         # socket setting 
         buf = 1024 * 1024
@@ -323,12 +324,12 @@ class Peer:
         # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock = socket.socket(family, socktype, proto)
         try:
-            print "addr: ", addr
+ #           print "addr: ", addr
             sock.connect(address)
         except Exception:
             print "Exception: ", Exception
             return False
-        print "overTry?"
+#        print "overTry?"
         sock.send(content)
         sock.close()
 
@@ -374,8 +375,8 @@ class Peer:
             elif option == 'next':
                 print self.getMessage()
             elif option == 'j':
-                #host = raw_input("Please input hostname:")
-                host = "bug06.umiacs.umd.edu"
+                host = raw_input("Please input hostname:")
+                #host = "bug06.umiacs.umd.edu"
                 self.join(host, 123123)
             elif option == 'r':
                 key = raw_input("Please input the key to query:")
@@ -396,10 +397,9 @@ class Peer:
                 continue
 
 
-            
 ##############################
 # Main
-##############################            
+##############################
 
 if len(sys.argv) == 1:
     print "This is the first peer of the system."
