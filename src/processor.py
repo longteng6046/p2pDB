@@ -81,6 +81,7 @@ class Processor(threading.Thread):
                     
                     if self.peer.tableLock.acquire():
                         if str(tableType).isdigit():
+                            print tableContent
                             self.peer.routeTable[tableType] = [int(tableContent[1]), int(tableContent[2])]
                             self.peer.routeMappingTable[int(tableContent[1])] = tableContent[3]
                             self.peer.routeMappingTable[int(tableContent[2])] = tableContent[4]
