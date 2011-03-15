@@ -8,7 +8,7 @@ import random
 class Communicator:
     messageQueue = None 
     def __init__(self, peer):
-        print "A communicator is created!"
+        # print "A communicator is created!"
         self.messageQueue = peer.messageQueue
         self.peer = peer
         self.mylistener = Listener(peer)
@@ -17,7 +17,7 @@ class Communicator:
         # self.operation()
         
     def send(self, host, sendPort, content):
-        print "sending ..."
+        # print "sending ..."
 
         # socket setting 
         buf = 1024 * 1024
@@ -25,10 +25,9 @@ class Communicator:
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            print "addr: ", addr
-            print "error", sock.connect_ex(addr)
+            sock.connect(addr)
         except Exception:
-            print "Exception: ", Exception
+            print "Connection lost with: ", addr
             return False
         sock.send(content)
         sock.close()

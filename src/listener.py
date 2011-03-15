@@ -1,43 +1,113 @@
 import threading
+import sys
 import socket
 
 class Listener(threading.Thread):
-
+    # def __init__(self, host, port, messageQueue):
     def __init__(self, peer):
-        threading.Thread.__init__(self, name = "noname")
-        print "A listener is created!"
+        super(Listener, self).__init__()
+        self._stop = threading.Event()
+        # threading.Thread.__init__(self, name = "noname")
+        # print "A listener is created!"
         self.host = ""
         self.listenPort = peer.listenPort
-        #self.messageQueue = peer.messageQueue
+        self.messageQueue = peer.messageQueue
         self.peer = peer
+        self.flag = True
+
+    def stop(self):
+        self._stop.set()
 
     def run(self):
         # listen to the host, and write everything into messageQueue
 
-        addr = ("",self.listenPort)
-        sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        sock.bind(addr)
-        buf = 1024 * 1024
-        sock.listen(100)
-        
-        while True:
-            conn, addr2 = sock.accept()
-            # data,addr2 = sock.recvfrom(buf)
-            data = conn.recv(buf)
+        # addr = ("",self.listenPort)
+        # sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        # sock.bind(addr)
+        # buf = 1024 * 1024
+        # sock.listen(100)
 
-            if not data:
-                print "Why no data coming?"
-                exit()
-            else:
-                # Preprocess message from others
-                category = data.split('\t')[0]
-                if category == "stable": # it's a stablizing message, to stabQueue
-                    if self.peer.stabLock.acquire():
-                        self.peer.stabQueue.append(data)
-                        self.peer.stabLock.release()
-                # check msgLock()
+        while self.flag == True:
+            addr = ("",self.listenPort)
+            sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            sock.bind(addr)
+            buf = 1024 * 1024
+            sock.listen(10)
+
+            while self.flag == True:
+                # print "Establishing connection..."
+                try:
+                    conn, addr2 = sock.accept()
+                except:
+                    print "exception in listener. lost node"
+                    print "addr2: ", addr2
+                    losthost = addr2[0]
+                    if self.findId(losthost) != None:
+                        self.stablize(self.findId(losthost))
+                    break
+            # print "Connection established!"
+            # data,addr2 = sock.recvfrom(buf)
+                data = conn.recv(buf)
+            
+            # print "data received!", data
+
+                if not data:
+                    break
                 else:
-                    if self.peer.msgLock.acquire():
-                        self.peer.messageQueue.append(data)
-                        #self.messageQueue.append(data)
-                        self.peer.msgLock.release()
+                    # Preprocess message from others
+                    category = data.split('\t')[0]
+                    if category == "stable": # it's a stablizing message, to stabQueue
+                        if self.peer.stabLock.acquire():
+                            self.peer.stabQueue.append(data)
+                            self.peer.stabLock.release()
+                # check msgLock()
+                    elif category == "live":
+                        continue
+                    else:
+                        if self.peer.msgLock.acquire():
+                            self.messageQueue.append(data)
+                            self.peer.msgLock.release()
+
+            time.sleep(1)
+
+        return
+        # while True:
+        #     # print "Establishing connection..."
+        #     try:
+        #         conn, addr2 = sock.accept()
+        #     except:
+        #         print "exception in listener. lost node"
+        #         print "addr2: ", addr2
+        #         losthost = addr2[0]
+        #         if self.findId(losthost) != None:
+        #             self.stablize(self.findId(losthost))
+        #         continue
+        #     # print "Connection established!"
+        #     # data,addr2 = sock.recvfrom(buf)
+        #     data = conn.recv(buf)
+            
+        #     # print "data received!", data
+
+            
+            
+        #     if not data:
+        #         print "Why no data coming?"
+        #         exit()
+        #     else:
+        #         # Preprocess message from others
+        #         category = data.split('\t')[0]
+        #         if category == "stable": # it's a stablizing message, to stabQueue
+        #             if self.peer.stabLock.acquire():
+        #                 self.peer.stabQueue.append(data)
+        #                 self.peer.stabLock.release()
+        #         # check msgLock()
+        #         elif category == "live":
+        #             continue
+        #         else:
+        #             if self.peer.msgLock.acquire():
+        #                 self.messageQueue.append(data)
+        #                 self.peer.msgLock.release()
+                        
+                            
+    def kill(self):
+        self.flag = False

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#
+# 
 #-------------------------------------------------------------------------------
 # Filename: peer.py
 # Version: 0.3
@@ -21,9 +21,12 @@ import time
 # from collections import defaultdict;
 from string import index;
 from math import log;
-from communicator import Communicator;
-from listener import Listener;
-from processor import Processor;
+
+from communicator import *
+from listener import *
+from processor import *
+from LifeChecker import *
+from copy import deepcopy
 
 # s: a non-negative integer
 # @return: the bit string representation of s
@@ -32,7 +35,6 @@ def getBitString(s):
         return str(s)
     else:
         return getBitString(s>>1) + str(s&1)
-
 
 # s: a non-negative integer
 # maxLength: the maximum length of the retrieved bit string
@@ -74,11 +76,10 @@ def getCommonMSB(int1, int2, maxLength):
                 break
     return bs
 
-def compareIP(ip1, ip2):
-    ip1 = int(ip1.split(".")[0][-2:])
-    ip2 = int(ip2.split(".")[0][-2:])
-    
-    return ip1-ip2
+# def compareIP(ip1, ip2):
+    # ip1 = int(ip1.split(".")[0][-2:])
+    # ip2 = int(ip2.split(".")[0][-2:])
+    # return ip1-ip2
 
 class Peer:
     pId = -1
@@ -88,6 +89,7 @@ class Peer:
     routeMappingTable = {}
     comm = None
     processor = None
+    terminateFlag = False
     
     messageQueue = []
     deadPeerQueue = []
@@ -95,19 +97,22 @@ class Peer:
     
     b = 2
     l = 8
+
+    leafRange = 32
+    neighborRange = 16
+
     localHost = "0.0.0.0"
-    listenPort = 123123
-    sendPort = 123123
-    port = 123123
+    listenPort = 12345
+    sendPort = 12345
+    port = 12345
 
     msgLock = None
     deadPeerLock = None
-    tableLock = None
-    stabLock = None
+    tableLock = None # The lock for all tables;
+    stabLock = None # The lock for stabQueue.
     
-
-
-    def __init__(self, pId, host = None, joinPort = 123123):
+    def __init__(self, pId, host = None, joinPort = 12345):
+        print "This peer runs on host: " + self.getLocalHost() + "."
         self.pId = pId
         self.localHost = self.getLocalHost()
 
@@ -117,7 +122,7 @@ class Peer:
             self.routeTable[i] = [None, None]
         self.routeMappingTable[None] = None
 
-        print "A peer with pId: " + str(pId) + " is created!"
+        # print "A peer with pId: " + str(pId) + " is created!"
 
         self.msgLock = threading.Lock()
         self.deadPeerLock = threading.Lock()
@@ -128,11 +133,18 @@ class Peer:
         self.processor.setDaemon(True)
         self.processor.start()
 
-        # if host != None:
-        #     print "join called!"
-        #     self.join(host, joinPort)
+        self.lifechecker = LifeChecker(self)
+        self.lifechecker.setDaemon(True)
+        self.lifechecker.start()
+
+        if host != None:
+            self.join(host, joinPort)
         
-        self.localOperation()        
+        self.localOperation()
+
+
+
+
 
     def setPId(self, pId):
         if pId >= 0 and pId<pow(2, self.l):
@@ -141,11 +153,29 @@ class Peer:
             print "invalid peer id, default to -1..."
             self.pId = -1;
 
+    def findId(self, hostname):
+        nTable = deepcopy(self.neighborTable)
+        lTable = deepcopy(self.leafTable)
+        rTable = deepcopy(self.routeMappingTable)
+
+        for item in nTable:
+            if nTable[item] == hostname:
+                return item
+        for item in lTable:
+            if lTable[item] == hostname:
+                return item
+        for item in rTable:
+            if rTable[item] == hostname:
+                return item
+        return None
+            
     def getLocalHost(self):
         return socket.gethostname()
 
     def getMessage(self): #return the first message in the message queue, and delete it.
         # check lock first
+        if self.messageQueue == None:
+            return None
         if self.msgLock.acquire():
             if len(self.messageQueue) == 0:
                 self.msgLock.release()
@@ -156,11 +186,15 @@ class Peer:
                 self.msgLock.release()
                 return result
 
+
+
     def getPId(self):
         return self.pId
 
     def join(self, hostIP, port):
-        self.send(hostIP, port, "join" + "\t" + "0" + "\t" + str(self.localHost) + "\t" + str(self.pId))
+        result = self.send(hostIP, port, "join" + "\t" + "0" + "\t" + str(self.localHost) + "\t" + str(self.pId))
+#        if result != True:
+#            print "successfully join"
 
     def serialize(self, tableName, routeTableIndex=0):
         string = tableName
@@ -204,7 +238,7 @@ class Peer:
             for i in xrange((len(tokens)-1)/2):
                 tempLeafTable[int(tokens[i*2+1])] = tokens[i*2+2]
 
-            self.leafTable = tempLeafTable
+            #self.leafTable = tempLeafTable
             return "leaf", tempLeafTable
         
         elif tableName=="neighbor":
@@ -213,7 +247,7 @@ class Peer:
             for i in xrange((len(tokens)-1)/2):
                 tempNeighborTable[int(tokens[i*2+1])] = tokens[i*2+2]
             
-            self.neighborTable = tempNeighborTable   
+            #self.neighborTable = tempNeighborTable   
             return "neighbor", tempNeighborTable
         else:
             print "undefined table type..."
@@ -222,33 +256,45 @@ class Peer:
     def addNewNode(self, peerIP, peerID):
         peerID = int(peerID)
         
-        self.leafTable[peerID] = peerIP
-        if len(self.leafTable.keys()) > pow(2, self.b+1):
-            distance = 0
-            furthestID = self.pId
-            for key in self.leafTable.keys():
-                if abs(key, self.pId) > distance:
-                    furthestID = key
-                    distance = abs(key, self.pId)
-            del self.leafTable[furthestID]
+#        if self.tableLock.acquire():
+        if abs(peerID-self.pId)<=self.leafRange/2:
+            self.leafTable[peerID] = peerIP
+            
+#            self.leafTable[peerID] = peerIP
+#            if len(self.leafTable.keys()) > self.leafRange():
+#                distance = 0
+#                furthestID = self.pId
+#                for key in self.leafTable.keys():
+#                    if abs(key, self.pId) > distance:
+#                        furthestID = key
+#                        distance = abs(key, self.pId)
+#                del self.leafTable[furthestID]
         
         cmsb = getCommonMSB(peerID, self.pId, self.l)
         lBit = int(getBitStringToLength(peerID, self.l)[len(cmsb)])
         assert lBit==0 or lBit==1
-        self.routeTable[len(cmsb)][lBit] = peerID
-        self.routeMappingTable[peerID] = peerIP
+
+        if self.routeTable[len(cmsb)][lBit]==None:
+            self.routeTable[len(cmsb)][lBit] = peerID
+            self.routeMappingTable[peerID] = peerIP
+                
+        if abs(self.routeTable[len(cmsb)][lBit]-self.pId)<abs(peerID-self.pId):
+            del self.routeMappingTable[self.routeTable[len(cmsb)][lBit]]
+            self.routeTable[len(cmsb)][lBit] = peerID
+            self.routeMappingTable[peerID] = peerIP
         
         self.neighborTable[peerID] = peerIP
-        if len(self.neighborTable.keys())>pow(2, self.b+1):
+#            if len(self.neighborTable.keys())>pow(2, self.b+1):
+        if len(self.neighborTable.keys())>self.neighborRange:
             distance = 0
             furthestID = self.pId
             for key in self.neighborTable.keys():
                 if abs(compare(self.neighborTable[key], self.localHost)) > distance:
                     furthestID = key
-                    distance = abs(compare(self.neighborTable[key], self.localHost))
+                    distance = abs(compare(self.neighborTable[key].split('.'), self.localHost.split('.')))
             del self.neighborTable[furthestID]
-
-
+            
+        #self.tableLock.release()
         
     def stablize(self, peerId):
         if peerId in self.leafTable:
@@ -257,30 +303,48 @@ class Peer:
             del self.neighborTable[peerId]
         if peerId in self.routeMappingTable:
             del self.routeMappingTable[peerId]
-
-            cmsb = getCommonMSB(peerId, self.pId, self.l)
-            lBit = int(getBitStringToLength(peerId, self.l)[len(cmsb)])
-            self.routeTable[len(cmsb)][lBit] = None
+            
+            for item in self.routeTable:
+                members = self.routeTable[item]
+                if peerId in members:
+                    members[members.index(peerId)] = None
+            
+            # cmsb = getCommonMSB(peerId, self.pId, self.l)
+            # lBit = int(getBitStringToLength(peerId, self.l)[len(cmsb)])
+            # print "cmsb:", cmsb, " lBit:", lBit, "len: ", len(cmsb)
+            # self.routeTable[len(cmsb)][lBit] = None
 
 
     
     def terminate(self):
         print str(self.pId) + " is terminating ..."
+        try:
+            self.processor.kill()        
+            self.comm.mylistener.kill()
+            self.lifechecker.kill()
+
+        except:
+            None
+        
+        sys.exit(0)
 
     def leave(self):
         print str(self.pId) + " has left the system."
 
-    def stablize(self):
-        print "stablize"
+    def find(self, key):
+        self.send(self.localHost, self.port, "route" + "\t" + str(0) + "\t" + self.localHost + "\t" + str(self.pId) + "\t" + key)
 
     def route(self, key):
         key = int(key)
         if key == self.pId:
             return "find", self.pId, self.localHost
         
-        if len(self.leafTable)!=0 and abs(key-self.pId) < pow(2, self.b):
+        if len(self.leafTable)!=0 and abs(key-self.pId) <= self.leafRange/2:
             closestPId = self.findClosestPID(key, self.leafTable.keys())
-            return "contact", closestPId, self.leafTable[closestPId]
+            if abs(key-closestPId)<abs(key-self.pId):
+                return "contact", closestPId, self.leafTable[closestPId]
+            else:
+                return "find", self.pId, self.localHost
         
         commonBitString = getCommonMSB(self.pId, key, self.l)
         lBit = int(getBitStringToLength(key, self.l)[len(commonBitString)])
@@ -314,26 +378,25 @@ class Peer:
         return closestPId
 
     def send(self, host, sendPort, content):
-#        print "sending ..."
-
-        # socket setting 
-        buf = 1024 * 1024
-        addr = (host, sendPort)
+        return self.comm.send(host, sendPort, content)
+        # # socket setting 
+        # buf = 1024 * 1024
+        # addr = (host, sendPort)
         
-        family, socktype, proto, garbage, address = socket.getaddrinfo(host, sendPort)[0]
-        # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock = socket.socket(family, socktype, proto)
-        try:
- #           print "addr: ", addr
-            sock.connect(address)
-        except Exception:
-            print "Exception: ", Exception
-            return False
-#        print "overTry?"
-        sock.send(content)
-        sock.close()
+        # family, socktype, proto, garbage, address = socket.getaddrinfo(host, sendPort)[0]
+        # # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # sock = socket.socket(family, socktype, proto)
+        # try:
+        #     # print "addr: ", addr, "peer"
+        #     sock.connect(address)
+        # except Exception:
+        #     print "Exception: ", Exception
+        #     return False
+        # # print "overTry?"
+        # sock.send(content)
+        # sock.close()
 
-        return True
+
 
     def printMessage(self):
         for item in self.messageQueue:
@@ -345,72 +408,69 @@ class Peer:
         print "*** Welcome to peer " + str(self.pId) + '! ***'
         while (True):
             print '''Please select operation:
-            \t'l') volunteerly leave the network;
-            \t't') terminate without telling anyone;
-            \t'j') Join;
-            \t'send') send a message;
-            \t'prt') print all messages;
-            \t'next') get next message, and delete it from the messageQueue;
-            \t'r') search a key
-            \t'pT' print tables
-            \t'q') logout peer.'''
+            \t'r') To search the host of a key;
+            \t'p') To print the tables of Pastry;
+            \t'id') To check the ID of the current peer;
+            \t't') To quit/terminate the current peer.'''
 
             option = raw_input("Your command: ")
-            if option == 'l':
-                self.leave()
-                return
-            elif option == 't':
+            if option == 't':
                 self.terminate()
                 return
-            elif option == 'send':
-                host = raw_input("Please input the objective hostname: ")
-                message = raw_input("Please input the message: ")
-                result = self.send(host, self.sendPort, message)
-                if result == True:
-                    print "Message has been sent."
-                else:
-                    print "Message sending failed."
-            elif option == 'prt':
-                self.printMessage()
-            elif option == 'next':
-                print self.getMessage()
-            elif option == 'j':
-                host = raw_input("Please input hostname:")
-                #host = "bug06.umiacs.umd.edu"
-                self.join(host, 123123)
             elif option == 'r':
-                key = raw_input("Please input the key to query:")
+                key = raw_input("Please input the key you want to query:")
+                self.route(key)
                 print self.route(key)
-            elif option == 'pT':
-                print "leafTable:"
-                print self.leafTable
-                print "routeTable:"
-                print self.routeTable
-                print "routeMappingTable: "
-                print self.routeMappingTable
+            elif option == 'p':
+                print "\nLeafTable:"
+                stream = ''
+                for item in self.leafTable: 
+                    print "id: ", item, " hostname: ", self.leafTable[item]
+                print "\nRouteTable:"
+                tmp = deepcopy(self.routeTable)
+                for item in tmp:
+                    print item, ": ", tmp[item]
                 print "neighborTable:"                
-                print self.neighborTable
-            elif option == 'q':
-                return
+                for item in self.neighborTable:
+                    print "id: ", item, " hostname:  ", self.neighborTable[item]
+                    print
+            elif option == 'id':
+                print "The id of the current peer: ", self.getPId()
             else:
                 print "Please choose an option:"
                 continue
 
 
+            
 ##############################
 # Main
-##############################
+##############################            
 
+print "\n********************************** Welcome to DHT! **********************************"
+print "Please use './pastry hostname' to join Pastry, or './pastry' to start a new Pastry network."
+            
+
+if len(sys.argv) != 2 and len(sys.argv) != 1:
+    print "\tFormat error! use './pastry hostname' to join Pastry, or './pastry' to start a new Pastry network."
+    sys.exit(1)
+
+if len(sys.argv) == 2 and len(sys.argv[1].split('.')) != 4:
+    print "\tFormat error! Please use IP or hostname (***.***.***.***) to specify the Pastry node you want to contact."
+    sys.exit(1)
+    
+pId = random.randint(0,255)
+            
 if len(sys.argv) == 1:
-    print "This is the first peer of the system."
+    print "\n*************** This is the first peer of the system. ***************\n"
     host = None
-    joinPort = 0
-elif len(sys.argv) == 3:
+    selfPeer = Peer(pId, host)    
+elif len(sys.argv) == 2:
     host = sys.argv[1]
-    joinPort = sys.argv[2]
-    print "Connecting via peer on " + host + ":" + str(joinPort) + "."
+    print "Connecting via peer on " + host + "."
+    selfPeer = Peer(pId, host)
+
 else:
     print "Wrong argument list."
     sys.exit(1)
-pId = random.randint(0,255)
-selfPeer = Peer(pId, host, joinPort)
+
+
