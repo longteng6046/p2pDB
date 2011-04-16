@@ -96,7 +96,7 @@ class Peer:
     stabQueue = [] # The queue to store stablizing messages from other nodes
     
     b = 2
-    l = 8
+    l = 40
 
     leafRange = 32
     neighborRange = 16

@@ -3,13 +3,13 @@ import time
 import sys
 from copy import deepcopy
 
-class LifeChecker(threading.Thread):
+class LiveChecker(threading.Thread):
     leafRange = 32
     
     def __init__(self, peer):
         threading.Thread.__init__(self, name = "noname")
         self.peer = peer
-        print "A LifeChecker thread is created!"
+        print "A LiveChecker thread is created!"
 
         self.flag = True
         
