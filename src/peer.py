@@ -142,10 +142,6 @@ class Peer:
         
         self.localOperation()
 
-
-
-
-
     def setPId(self, pId):
         if pId >= 0 and pId<pow(2, self.l):
             self.pId = pId;
@@ -185,8 +181,6 @@ class Peer:
                 del self.messageQueue[0]
                 self.msgLock.release()
                 return result
-
-
 
     def getPId(self):
         return self.pId
@@ -314,8 +308,6 @@ class Peer:
             # print "cmsb:", cmsb, " lBit:", lBit, "len: ", len(cmsb)
             # self.routeTable[len(cmsb)][lBit] = None
 
-
-    
     def terminate(self):
         print str(self.pId) + " is terminating ..."
         try:
@@ -396,8 +388,6 @@ class Peer:
         # sock.send(content)
         # sock.close()
 
-
-
     def printMessage(self):
         for item in self.messageQueue:
             print "message: ", item
@@ -440,8 +430,6 @@ class Peer:
                 print "Please choose an option:"
                 continue
 
-
-            
 ##############################
 # Main
 ##############################            
