@@ -18,16 +18,17 @@ import threading
 import socket
 import random
 import time
-# from collections import defaultdict;
+
 from string import index;
 from math import log;
+from copy import deepcopy;
 
 from communicator import *
 from listener import *
 from processor import *
-from lifechecker import *
-from copy import deepcopy
-from util import *
+from life_checker import *
+from id_ops import *
+#from ip_ops import *
 
 class Peer:
     pID = -1
@@ -61,11 +62,11 @@ class Peer:
     stabLock = None # The lock for stabQueue.
     
     def __init__(self, pID, hostIP = None, joinPort = 12345):
+        assert len(pID)==self.length
         print "This peer runs on pIP: " + self.getIP() + " with pID " + pID + "."
+        
         self.pID = pID
         self.pIP = self.getIP()
-
-        self.communicator = Communicator(self)
 
         for i in xrange(self.length):
             self.routeTable[i] = [None for i in range(pow(2, self.base_power))]
@@ -83,19 +84,18 @@ class Peer:
         self.lifechecker = LifeChecker(self)
         self.lifechecker.setDaemon(True)
         self.lifechecker.start()
-
+        
+        self.communicator = Communicator(self)
+        
         if hostIP != None:
             self.join(hostIP, joinPort)
         
         self.localOperation()
 
     def setPId(self, pID):
-        if len(pID)==self.length:
-            self.pID = pID;
-        else:
-            print "invalid peer id, default to 'invalid peer index'..."
-            self.pID = getSha1("invalid peer index");
-
+        assert len(pID)==self.length
+        self.pID = pID;
+        
     def findId(self, targetIP):
         nTable = deepcopy(self.neighborTable)
         lTable = deepcopy(self.leafTable)
@@ -185,6 +185,8 @@ class Peer:
             #return None, None
 
     def addNewNode(self, peerIP, peerID):
+        from ip_ops import getExpression
+                
         assert len(peerID) == self.length
                 
 #        if self.tableLock.acquire():
@@ -215,16 +217,18 @@ class Peer:
             del self.routeMappingTable[self.routeTable[len(cmsb)][lBit]]
             self.routeTable[len(cmsb)][lBit] = peerID
             self.routeMappingTable[peerID] = peerIP
-        
+
         self.neighborTable[peerID] = peerIP
         if len(self.neighborTable.keys())>self.neighborRange:
             distance = 0
             furthestID = self.pID
             for key in self.neighborTable.keys():
-                if abs(compare(self.neighborTable[key], self.pIP)) > distance:
+                if abs(compare(getExpression(self.neighborTable[key]), getExpression(self.pIP))) > distance:
                     furthestID = key
-                    distance = abs(compare(self.neighborTable[key].split('.'), self.pIP.split('.')))
+                    distance = abs(compare(getExpression(self.neighborTable[key]), getExpression(self.pIP)))
             del self.neighborTable[furthestID]
+            
+        assert len(self.neighborTable)<=self.neighborRange
             
         #self.tableLock.release()
         
@@ -241,11 +245,6 @@ class Peer:
                 if peerId in members:
                     members[members.index(peerId)] = None
             
-            # cmsb = getCommonMSB(peerId, self.pID, self.length)
-            # lBit = int(getBitStringToLength(peerId, self.length)[len(cmsb)])
-            # print "cmsb:", cmsb, " lBit:", lBit, "len: ", len(cmsb)
-            # self.routeTable[len(cmsb)][lBit] = None
-
     def terminate(self):
         print str(self.pID) + " is terminating ..."
         try:
