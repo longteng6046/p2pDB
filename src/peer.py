@@ -59,12 +59,12 @@ class Peer:
     tableLock = None # The lock for all tables;
     stabLock = None # The lock for stabQueue.
     
-    def __init__(self, pID, hostIP = None, joinPort = 12345):
-        assert len(pID)==self.length
-        print "This peer runs on pIP: " + self.getIP() + " with pID " + pID + "."
-        
-        self.pID = pID
+    def __init__(self, hostIP = None, joinPort = 12345):
+        from id_ops import getSha1
         self.pIP = self.getIP()
+        self.pID = getSha1(pIP)
+        
+        print "This peer runs on pIP: " + self.getIP() + " with pID " + pID + "."
 
         for i in xrange(self.length):
             self.routeTable[i] = [None for i in range(pow(2, self.base_power))]
