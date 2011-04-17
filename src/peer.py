@@ -134,9 +134,9 @@ class Peer:
     def getName(self):
         return socket.gethostname()
     
-    # TODO: change the method
     def getIP(self):
-        return socket
+        from ip_ops import getIP
+        return getIP('eth0')
 
     def serialize(self, tableName, routeTableIndex=0):
         string = tableName
@@ -402,5 +402,3 @@ elif len(sys.argv) == 2:
 else:
     print "Wrong argument list."
     sys.exit(1)
-
-

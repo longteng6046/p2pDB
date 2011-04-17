@@ -1,14 +1,12 @@
-#!/usr/bin/python
+def getIP(ifname):
+    import socket, fcntl, struct
 
-import sys
-import threading
-import socket
-import random
-import time
-
-from string import index;
-from math import log;
-from copy import deepcopy;
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
 
 def formalize(ip):
     tokens = ip.split(".")
@@ -28,5 +26,5 @@ def getExpression(ip):
 if __name__ == "__main__":
     print formalize("12.52.126.25")
     print getExpression("12.52.421.54")
-    
-    print abs(compare(getExpression("12.52.421.54"), getExpression("12.52.421.54")))
+     
+    print getIP("eth0")
