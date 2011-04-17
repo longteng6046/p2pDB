@@ -66,8 +66,6 @@ class LiveChecker(threading.Thread):
                         self.peer.send(objHost, self.peer.sendPort, msg)
                 self.peer.tableLock.release()
 
-
-                
             time.sleep(1)
             # then process feedbacks from oher nodes to repopulize
             # leaftable and neighbor table
