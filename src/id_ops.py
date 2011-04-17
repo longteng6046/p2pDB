@@ -56,6 +56,10 @@ def getCommonMSB(str_1, str_2, max_length=0):
     
     return common_bit_string
 
+def getHexDifference(hex_str_1, hex_str_2):
+    assert len(hex_str_1)==len(hex_str_2)
+    return getDifference(hex2bin(hex_str_1), hex2bin(hex_str_2))
+
 def getDifference(bit_str_1, bit_str_2):
     bit_str_1 = reverseString(bit_str_1)
     bit_str_2 = reverseString(bit_str_2)
@@ -96,4 +100,4 @@ if __name__ == "__main__":
     print hex2bin("1a1"), "\t", hex2bin('b2')
     print getCommonMSB(hex2bin('a1'), hex2bin('b2'), 15)
     print getDifference(hex2bin('a1'), hex2bin('b2'))
-    print getDifference(hex2bin('b2'), hex2bin('a1'))
+    print getHexDifference('b2', 'a1')

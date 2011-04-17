@@ -27,8 +27,6 @@ from communicator import *
 from listener import *
 from processor import *
 from life_checker import *
-from id_ops import *
-#from ip_ops import *
 
 class Peer:
     pID = -1
@@ -186,11 +184,12 @@ class Peer:
 
     def addNewNode(self, peerIP, peerID):
         from ip_ops import getExpression
+        from id_ops import getHexDifference
                 
         assert len(peerID) == self.length
                 
 #        if self.tableLock.acquire():
-        if abs(getDifference(hex2bin(peerID), hex2bin(self.pID)))<=self.leafRange/2:
+        if abs(getHexDifference(peerID, self.pID))<=self.leafRange/2:
             self.leafTable[peerID] = peerIP
             
 #            self.leafTable[peerID] = peerIP
@@ -213,7 +212,7 @@ class Peer:
             self.routeMappingTable[peerID] = peerIP                
         assert len(self.routeTable[len(cmsb)][lBit])==self.length
         
-        if abs(getDifference(hex2bin(self.routeTable[len(cmsb)][lBit])-hex2bin(self.pID)))<abs(getDifference(hex2bin(peerID)-hex2bin(self.pID))):
+        if abs(getHexDifference(self.routeTable[len(cmsb)][lBit], self.pID))<abs(getHexDifference(peerID, self.pID)):
             del self.routeMappingTable[self.routeTable[len(cmsb)][lBit]]
             self.routeTable[len(cmsb)][lBit] = peerID
             self.routeMappingTable[peerID] = peerIP
@@ -244,45 +243,33 @@ class Peer:
                 members = self.routeTable[item]
                 if peerId in members:
                     members[members.index(peerId)] = None
-            
-    def terminate(self):
-        print str(self.pID) + " is terminating ..."
-        try:
-            self.processor.kill()        
-            self.communicator.mylistener.kill()
-            self.lifechecker.kill()
-
-        except:
-            None
-        
-        sys.exit(0)
 
     def join(self, pIP, port):
         result = self.send(pIP, port, "join" + "\t" + "0" + "\t" + str(self.pIP) + "\t" + str(self.pID))
 #        if result != True:
 #            print "successfully join"
 
-    def leave(self):
-        print str(self.pID) + " has left the system."
-
     def find(self, key):
         self.send(self.pIP, self.port, "route" + "\t" + str(0) + "\t" + self.pIP + "\t" + str(self.pID) + "\t" + key)
 
     def route(self, key):
-        key = int(key)
+        from id_ops import getHexDifference 
+        assert len(key)==self.length
+        
         if key == self.pID:
             return "find", self.pID, self.pIP
         
-        if len(self.leafTable)!=0 and abs(key-self.pID) <= self.leafRange/2:
+        if len(self.leafTable)!=0 and abs(getHexDifference(key, self.pID)) <= self.leafRange/2:
             closestPId = self.findClosestPID(key, self.leafTable.keys())
-            if abs(key-closestPId)<abs(key-self.pID):
+            if abs(getHexDifference(key, closestPId))<abs(getHexDifference(key, self.pID)):
                 return "contact", closestPId, self.leafTable[closestPId]
             else:
                 return "find", self.pID, self.pIP
         
         commonBitString = getCommonMSB(self.pID, key, self.length)
-        lBit = int(getBitStringToLength(key, self.length)[len(commonBitString)])
-        assert lBit==0 or lBit==1
+        lBit = int(expendLeftToLength(peerID, self.length)[len(cmsb)], 16)
+        assert lBit>=0 and lBit<2**self.base_length
+        
         if self.routeTable[len(commonBitString)][lBit] != None:
             return "contact", self.routeTable[len(commonBitString)][lBit], self.routeMappingTable[self.routeTable[len(commonBitString)][lBit]]
 
@@ -299,17 +286,21 @@ class Peer:
         else:
             return "find", self.pID, self.pIP
 
-    def findClosestPID(self, key, pIdList):
-        closestPId = -pow(2, 2*self.length);
-            
-        for peerId in pIdList:
-            if peerId==None:
-                # pIdList is empty
-                continue
-            if abs(peerId-key) <= abs(closestPId-key):
-                closestPId = peerId
+    def findClosestPID(self, key, pID_list):
+        from id_ops import getHexDifference 
+        assert len(key)==self.length
         
-        return closestPId
+        closest_pID = ""
+        closest_distance = 2**(4**self.length)
+            
+        for peerID in pID_list:
+            if peerID==None:
+                # pID_list is empty
+                continue
+            if abs(getHexDifference(peerID, key)) <= closest_distance:
+                closest_pID = peerID
+        
+        return closest_pID
 
     def send(self, destination, sendPort, content):
         return self.communicator.send(destination, sendPort, content)
@@ -330,9 +321,26 @@ class Peer:
         # sock.send(content)
         # sock.close()
 
+    def terminate(self):
+        print str(self.pID) + " is terminating ..."
+        try:
+            self.processor.kill()        
+            self.communicator.mylistener.kill()
+            self.lifechecker.kill()
+
+        except:
+            None
+        
+        sys.exit(0)
+        
+    def leave(self):
+        print str(self.pID) + " has left the system."
+        self.terminate()
+
     def printMessage(self):
         for item in self.messageQueue:
             print "message: ", item
+    
     def prtMsgQueue(self):
         self.communicator.prtMsgQueue()
 
