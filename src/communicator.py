@@ -9,8 +9,8 @@ class Communicator:
     messageQueue = None 
     def __init__(self, peer):
         # print "A communicator is created!"
-        self.messageQueue = peer.messageQueue
         self.peer = peer
+        self.messageQueue = peer.messageQueue
         self.mylistener = Listener(peer)
         self.mylistener.setDaemon(True)
         self.mylistener.start()

@@ -94,6 +94,34 @@ def hex2bin(hex_str):
         aa += bin[int(hex_str[i],base=16)]
     return aa
 
+def findClosestID(target_id, node_dict):
+    closest_node = None
+    closest_distance = 2**(4**self.length)
+        
+    for id in node_dict.keys():
+        if id==None:
+            continue
+        current_distance = abs(getHexDifference(id, target_id))
+        if current_distance <= closest_distance:
+            closest_distance = current_distance
+            closest_node = (id, node_dict[id]) 
+    
+    return closest_node
+
+def findFurthestID(target_id, node_dict):
+    furthest_node = None
+    furthest_distance = 0
+        
+    for id in node_dict:
+        if id==None:
+            continue
+        current_distance = abs(getHexDifference(id, target_id))
+        if current_distance >= furthest_distance:
+            furthest_distance = current_distance
+            furthest_node = (id, node_dict[id])
+    
+    return furthest_node
+
 if __name__ == "__main__":
     print getSha1("hello, how are you doing?")
     print len(getSha1("hello, how are you doing?"))

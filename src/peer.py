@@ -26,13 +26,16 @@ from copy import deepcopy;
 from communicator import *
 from listener import *
 from processor import *
-from life_checker import *
+from live_checker import *
 
 class Peer:
-    pID = -1
+    pID = ""
     pIP = "0.0.0.0"
-    listenPort = 12345
-    sendPort = 12345
+    
+    # base_power defines the base of the key space, i.e., in 2^base_power space     
+    base_power = 4
+    # length defines the length of the key
+    length = 40
     port = 12345
     
     routeTable = {}
@@ -46,11 +49,6 @@ class Peer:
     messageQueue = []
     stabQueue = [] # The queue to store stablizing messages from other nodes
     
-    # base_power defines the base of the key space, i.e., in 2^base_power space     
-    base_power = 4
-    # length defines the length of the key
-    length = 40
-
     leafRange = length
     neighborRange = length
     
@@ -59,12 +57,12 @@ class Peer:
     tableLock = None # The lock for all tables;
     stabLock = None # The lock for stabQueue.
     
-    def __init__(self, hostIP = None, joinPort = 12345):
+    def __init__(self, hostIP = None):
         from id_ops import getSha1
         self.pIP = self.getIP()
-        self.pID = getSha1(pIP)
+        self.pID = getSha1(self.pIP)
         
-        print "This peer runs on pIP: " + self.getIP() + " with pID " + pID + "."
+        print "This peer runs on pIP: " + self.getIP() + " with pID " + self.pID + "."
 
         for i in xrange(self.length):
             self.routeTable[i] = [None for i in range(pow(2, self.base_power))]
@@ -79,9 +77,9 @@ class Peer:
         self.processor.setDaemon(True)
         self.processor.start()
 
-        self.lifechecker = LifeChecker(self)
-        self.lifechecker.setDaemon(True)
-        self.lifechecker.start()
+        self.livechecker = LiveChecker(self)
+        self.livechecker.setDaemon(True)
+        self.livechecker.start()
         
         self.communicator = Communicator(self)
         
@@ -253,14 +251,15 @@ class Peer:
         self.send(self.pIP, self.port, "route" + "\t" + str(0) + "\t" + self.pIP + "\t" + str(self.pID) + "\t" + key)
 
     def route(self, key):
-        from id_ops import getHexDifference 
+        from id_ops import findClosestID
+        
         assert len(key)==self.length
         
         if key == self.pID:
             return "find", self.pID, self.pIP
         
         if len(self.leafTable)!=0 and abs(getHexDifference(key, self.pID)) <= self.leafRange/2:
-            closestPId = self.findClosestPID(key, self.leafTable.keys())
+            (closestPId, closestPIp) = findClosestID(key, self.leafTable.keys())
             if abs(getHexDifference(key, closestPId))<abs(getHexDifference(key, self.pID)):
                 return "contact", closestPId, self.leafTable[closestPId]
             else:
@@ -273,9 +272,9 @@ class Peer:
         if self.routeTable[len(commonBitString)][lBit] != None:
             return "contact", self.routeTable[len(commonBitString)][lBit], self.routeMappingTable[self.routeTable[len(commonBitString)][lBit]]
 
-        CPIDL = self.findClosestPID(key, self.leafTable.keys())
-        CPIDN = self.findClosestPID(key, self.neighborTable.keys())
-        CPIDR = self.findClosestPID(key, self.routeMappingTable.keys())
+        (CPIDL, CPIPL) = findClosestID(key, self.leafTable.keys())
+        (CPIDN, CPIPN)= findClosestID(key, self.neighborTable.keys())
+        (CPIDR, CPIPR) = findClosestID(key, self.routeMappingTable.keys())
         
         if abs(CPIDL-key) < abs(self.pID-key) and abs(CPIDL-key) < abs(CPIDN-key) and abs(CPIDL-key) < abs(CPIDR-key):
             return "contact", CPIDL, self.leafTable[CPIDL]
@@ -285,22 +284,6 @@ class Peer:
             return "contact", CPIDR, self.routeMappingTable[CPIDR]
         else:
             return "find", self.pID, self.pIP
-
-    def findClosestPID(self, key, pID_list):
-        from id_ops import getHexDifference 
-        assert len(key)==self.length
-        
-        closest_pID = ""
-        closest_distance = 2**(4**self.length)
-            
-        for peerID in pID_list:
-            if peerID==None:
-                # pID_list is empty
-                continue
-            if abs(getHexDifference(peerID, key)) <= closest_distance:
-                closest_pID = peerID
-        
-        return closest_pID
 
     def send(self, destination, sendPort, content):
         return self.communicator.send(destination, sendPort, content)
@@ -326,7 +309,7 @@ class Peer:
         try:
             self.processor.kill()        
             self.communicator.mylistener.kill()
-            self.lifechecker.kill()
+            self.livechecker.kill()
 
         except:
             None
@@ -370,7 +353,7 @@ class Peer:
                 tmp = deepcopy(self.routeTable)
                 for item in tmp:
                     print item, ": ", tmp[item]
-                print "neighborTable:"                
+                print "\nNeighborTable:"                
                 for item in self.neighborTable:
                     print "id: ", item, " hostname:  ", self.neighborTable[item]
                     print
@@ -380,33 +363,5 @@ class Peer:
                 print "Please choose an option:"
                 continue
 
-##############################
-# Main
-##############################            
-
-print "\n********************************** Welcome to DHT! **********************************"
-print "Please use './pastry hostname' to join Pastry, or './pastry' to start a new Pastry network."
-            
-
-if len(sys.argv) != 2 and len(sys.argv) != 1:
-    print "\tFormat error! use './pastry hostname' to join Pastry, or './pastry' to start a new Pastry network."
-    sys.exit(1)
-
-if len(sys.argv) == 2 and len(sys.argv[1].split('.')) != 4:
-    print "\tFormat error! Please use IP or hostname (***.***.***.***) to specify the Pastry node you want to contact."
-    sys.exit(1)
-    
-pID = random.randint(0,255)
-            
-if len(sys.argv) == 1:
-    print "\n*************** This is the first peer of the system. ***************\n"
-    host = None
-    selfPeer = Peer(pID, host)    
-elif len(sys.argv) == 2:
-    host = sys.argv[1]
-    print "Connecting via peer on " + host + "."
-    selfPeer = Peer(pID, host)
-
-else:
-    print "Wrong argument list."
-    sys.exit(1)
+if __name__ == "__main__":
+    selfPeer = Peer(None)
