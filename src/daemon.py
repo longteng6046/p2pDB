@@ -5,6 +5,7 @@ import socket
 
 from sql.sqlChannel import *
 from sql.sqlMsgListener import *
+from pastry.peer import *
 
 class Daemon:
     ##############################
@@ -35,7 +36,7 @@ class Daemon:
         self.sqlMsgListener = SqlMsgListener(self.sqlBasePort, self.sqlBaseBuf, self)
         self.sqlMsgListener.setDaemon(True)
         self.sqlMsgListener.start()
-
+        self.pastryPeer = Peer(None)
         
         # Operation Menu
         self.localOperation()
@@ -67,13 +68,16 @@ class Daemon:
         while (True):
             print '''Please select operation:
             \t'c') To establish a connection with another daemon.
+            \t'peer') To operate pastry peer.
             \t'q') To quit.'''
 
             option = raw_input("Your command: ")
 
             if option == 'q':
                 return
-            
+
+            elif option == 'peer':
+                self.pastryPeer.localOperation()
             elif option == 'c':
                 hostname = raw_input("Which host do you want to connect to?\n")
                 channel = self.sqlConnect(hostname)

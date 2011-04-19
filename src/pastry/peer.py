@@ -90,7 +90,7 @@ class Peer:
         if hostIP != None:
             self.join(hostIP, joinPort)
         
-        self.localOperation()
+        # self.localOperation()
 
     def setPId(self, pID):
         assert len(pID)==self.length
@@ -319,7 +319,7 @@ class Peer:
         except:
             None
         
-        sys.exit(0)
+        # sys.exit(0)
         
     def leave(self):
         print str(self.pID) + " has left the system."
