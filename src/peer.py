@@ -2,7 +2,7 @@
 # 
 #-------------------------------------------------------------------------------
 # Filename: peer.py
-# Version: 0.3
+# Version: 0.31
 # Description:
 #     Define a class Peer, having all data structures needed for a peer.
 # Update:
