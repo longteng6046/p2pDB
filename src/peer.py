@@ -3,6 +3,7 @@
 #-------------------------------------------------------------------------------
 # Filename: peer.py
 # Version: 0.31
+# Date: April. 19
 # Description:
 #     Define a class Peer, having all data structures needed for a peer.
 # Update:
@@ -11,6 +12,8 @@
 #     use peer.rcv() to rcv all messages into local messageList.
 #     received messages will not be received again by calling rcv();
 #     local messageList will be overritten by multiple call of rcv().
+#     0.31:
+#          A few typo are fixed.
 #-------------------------------------------------------------------------------
 
 import sys
@@ -27,6 +30,7 @@ from communicator import *
 from listener import *
 from processor import *
 from live_checker import *
+from id_ops import *
 
 class Peer:
     pID = ""
@@ -201,7 +205,7 @@ class Peer:
 #                del self.leafTable[furthestID]
         
         cmsb = getCommonMSB(peerID, self.pID, self.length)
-        lBit = int(expendLeftToLength(peerID, self.length)[len(cmsb)], 16)
+        lBit = int(expandLeftToLength(peerID, self.length)[len(cmsb)], 16)
         #lBit = int(getBitStringToLength(peerID, self.length)[len(cmsb)])
         assert lBit>=0 and lBit<2**self.base_length
         
@@ -266,8 +270,9 @@ class Peer:
                 return "find", self.pID, self.pIP
         
         commonBitString = getCommonMSB(self.pID, key, self.length)
-        lBit = int(expendLeftToLength(peerID, self.length)[len(cmsb)], 16)
-        assert lBit>=0 and lBit<2**self.base_length
+        # lBit = int(expandLeftToLength(peerID, self.length)[len(cmsb)], 16)
+        lBit = int(expandLeftToLength(self.pID, self.length)[len(commonBitString)], 16)
+        assert lBit>=0 and lBit<2**self.base_power
         
         if self.routeTable[len(commonBitString)][lBit] != None:
             return "contact", self.routeTable[len(commonBitString)][lBit], self.routeMappingTable[self.routeTable[len(commonBitString)][lBit]]
