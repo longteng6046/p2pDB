@@ -55,21 +55,15 @@ class LiveChecker(threading.Thread):
             time.sleep(1)
             if self.peer.tableLock.acquire():
                 if len(self.peer.neighborTable) < self.neighborLength:
-                    farNode = findFurthestID(self.pID, self.peer.neighborTable)
-                    if farNode != None:
-                        objId, objHost = farNode
-                        # print "objHost: ", objHost
-                        msg = "acquire\t" + self.peer.getLocalHost() + "\t" + str(self.peer.pId) + "\tneighbor"
-                        print "send 3........"
+                    (objId, objHost) = findFurthestID(self.pID, self.peer.neighborTable)
+                    if objId != None and objHost != None:
+                        msg = "acquire\t" + self.pIP + "\t" + str(self.pID) + "\tneighbor"
                         self.peer.send(objHost, self.port, msg)
 
                 if len(self.peer.leafTable) < self.leafLength:
-                    farNode = findFurthestIP(self.pIP, self.peer.neighborTable)
-                    if farNode != None:
-                        # print "objHost: ", objHost                        
-                        objId, objHost = farNode
-                        msg = "acquire\t" + self.peer.getLocalHost() + "\t" + str(self.peer.pId) + "\tleaf"
-                        print "send 4........"
+                    (objId, objHost) = findFurthestIP(self.pIP, self.peer.neighborTable)
+                    if objId!=None and objHost!=None:
+                        msg = "acquire\t" + self.pIP + "\t" + str(self.pID) + "\tleaf"
                         self.peer.send(objHost, self.port, msg)
                 self.peer.tableLock.release()
 
@@ -95,12 +89,12 @@ class LiveChecker(threading.Thread):
                             # Check whether the leaf is having a vacanci
                                 if len(self.peer.leafTable) < self.leafLength:
                                     numVacc = self.leafLength - len(self.peer.leafTable)
-                                # Add stuf into leafTable
+                                    # Add stuf into leafTable
                                     leafAddList = [] # a list of (key, val) pairs, not dict
                                     for i in range(0,numVacc):
-                                        pair = findCloestID(self.pID, nodesPair) 
-                                        if pair != None and pair[0] not in self.peer.leafTable:
-                                            leafAddList.append(pair)
+                                        (objId, objHost) = findCloestID(self.pID, nodesPair) 
+                                        if objId != None and objHost != None and objId not in self.peer.leafTable:
+                                            leafAddList.append((objId, objHost))
                                     if len(leafAddList) != 0:
                                         for item in leafAddList:
                                             self.peer.leafTable[ item[0] ] = item[1]
@@ -115,9 +109,9 @@ class LiveChecker(threading.Thread):
                                     neighborAddList = [] # a list of (key, val) pairs
                                 
                                     for i in range(0, numVacc):
-                                        pair = self.retrieveCloseNeighbor(nodesPair) # ***************************
-                                        if pair != None and pair[0] not in self.peer.neighborTable:
-                                            neighborAddList.append(pair)
+                                        (objId, objHost) = self.retrieveCloseNeighbor(nodesPair) # ***************************
+                                        if objId != None and objHost != None and objId not in self.peer.neighborTable:
+                                            neighborAddList.append((objId, objHost))
                                     if len(neighborAddList) != 0:
 
                                         for item in neighborAddList:

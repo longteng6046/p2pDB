@@ -24,7 +24,10 @@ def getExpression(ip):
     return "".join(ip.split("."))
 
 def findClosestIP(target_ip, node_dict):
-    closest_node = None
+    if node_dict==None or len(node_dict)==0:
+        return (None, None)
+    
+    closest_node = (None, None)
     # get the largest possible difference
     closest_distance = 999999999
         
@@ -40,7 +43,10 @@ def findClosestIP(target_ip, node_dict):
     return closest_node
 
 def findFurthestIP(target_ip, node_dict):
-    furthest_node = None
+    if node_dict==None or len(node_dict)==0:
+        return (None, None)
+    
+    furthest_node = (None, None)
     furthest_distance = 0
         
     for id in node_dict:

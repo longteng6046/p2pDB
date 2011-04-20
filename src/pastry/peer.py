@@ -69,7 +69,7 @@ class Peer:
         print "This peer runs on pIP: " + self.getIP() + " with pID " + self.pID + "."
 
         for i in xrange(self.length):
-            self.routeTable[i] = [None for i in range(pow(2, self.base_power))]
+            self.routeTable[i] = [None for j in xrange(pow(2, self.base_power))]
         self.routeMappingTable[None] = None
         
         self.msgLock = threading.Lock()
@@ -263,7 +263,7 @@ class Peer:
             return "find", self.pID, self.pIP
         
         if len(self.leafTable)!=0 and abs(getHexDifference(key, self.pID)) <= self.leafRange/2:
-            (closestPId, closestPIp) = findClosestID(key, self.leafTable.keys())
+            (closestPId, closestPIp) = findClosestID(key, self.leafTable)
             if abs(getHexDifference(key, closestPId))<abs(getHexDifference(key, self.pID)):
                 return "contact", closestPId, self.leafTable[closestPId]
             else:
@@ -277,15 +277,15 @@ class Peer:
         if self.routeTable[len(commonBitString)][lBit] != None:
             return "contact", self.routeTable[len(commonBitString)][lBit], self.routeMappingTable[self.routeTable[len(commonBitString)][lBit]]
 
-        (CPIDL, CPIPL) = findClosestID(key, self.leafTable.keys())
-        (CPIDN, CPIPN)= findClosestID(key, self.neighborTable.keys())
-        (CPIDR, CPIPR) = findClosestID(key, self.routeMappingTable.keys())
+        (CPIDL, CPIPL) = findClosestID(key, self.leafTable)
+        (CPIDN, CPIPN)= findClosestID(key, self.neighborTable)
+        (CPIDR, CPIPR) = findClosestID(key, self.routeMappingTable)
         
-        if abs(CPIDL-key) < abs(self.pID-key) and abs(CPIDL-key) < abs(CPIDN-key) and abs(CPIDL-key) < abs(CPIDR-key):
+        if CPIDL!=None and abs(CPIDL-key) < abs(self.pID-key) and abs(CPIDL-key) < abs(CPIDN-key) and abs(CPIDL-key) < abs(CPIDR-key):
             return "contact", CPIDL, self.leafTable[CPIDL]
-        elif abs(CPIDN-key) < abs(self.pID-key) and abs(CPIDN-key) < abs(CPIDL-key) and abs(CPIDN-key) < abs(CPIDR-key):
+        elif CPIDN!=None and abs(CPIDN-key) < abs(self.pID-key) and abs(CPIDN-key) < abs(CPIDL-key) and abs(CPIDN-key) < abs(CPIDR-key):
             return "contact", CPIDN, self.neighborTable[CPIDN]
-        elif abs(CPIDR-key) < abs(self.pID-key) and abs(CPIDR-key) < abs(CPIDL-key) and abs(CPIDR-key) < abs(CPIDN-key):
+        elif CPIDR!=None and abs(CPIDR-key) < abs(self.pID-key) and abs(CPIDR-key) < abs(CPIDL-key) and abs(CPIDR-key) < abs(CPIDN-key):
             return "contact", CPIDR, self.routeMappingTable[CPIDR]
         else:
             return "find", self.pID, self.pIP

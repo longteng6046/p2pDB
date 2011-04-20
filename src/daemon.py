@@ -40,7 +40,6 @@ class Daemon:
         
         # Operation Menu
         self.localOperation()
-        
 
     def getCurrentSqlPort(self): # get the available sql port
         sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
